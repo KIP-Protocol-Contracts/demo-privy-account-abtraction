@@ -64,7 +64,10 @@ Your login methods must match with
 6. Setup gas bundle for Biconomy (only for the sponsor)
 
 Go into biconomy dashboard https://dashboard.biconomy.io/
+
 Setup to get the paymentMasterApi and bundleUrl
+
+![image](images/biconomy_dashboard.png)
 
 5. Open [http://localhost:3000](http://localhost:3000) in your web browser to access the application.
 

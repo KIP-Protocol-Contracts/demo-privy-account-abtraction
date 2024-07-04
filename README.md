@@ -2,6 +2,8 @@
 
 This is a [Next.js](https://nextjs.org/) project that demonstrates the integration of Biconomy for gasless transactions and Magic for user authentication. It allows you to interact with a smart contract on the Polygon Amoy test network.
 
+![image](images/login.png)
+
 ## Getting Started
 
 To get started with this project, follow these steps:
@@ -67,7 +69,7 @@ Go into biconomy dashboard https://dashboard.biconomy.io/
 
 Setup to get the paymentMasterApi and bundleUrl
 
-![image](images/biconomy_dashboard.png)
+![image](images/setup_biconomy_bundle.png)
 
 5. Open [http://localhost:3000](http://localhost:3000) in your web browser to access the application.
 

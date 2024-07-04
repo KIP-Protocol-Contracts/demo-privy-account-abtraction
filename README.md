@@ -30,6 +30,42 @@ To get started with this project, follow these steps:
    # or
    yarn dev
 
+5. Setup login method
+
+Go into privy dashboard https://dashboard.privy.io/
+Setup to get appId for your project
+
+```typescript
+export default function App({ Component, pageProps }: AppProps) {
+  return (
+    <>
+      <PrivyProvider
+        appId="cly5y2njc04whvv4lrd2b1trt" //Use your own appId from https://dashboard.privy.io/
+        config={{
+          supportedChains: [baseSepolia], // <-- Add your supported chains here
+          embeddedWallets: {
+            createOnLogin: "users-without-wallets",
+            noPromptOnSignature: true,
+          },
+          loginMethods: ["email", "google", "twitter"], // <-- Add your supported login methods here
+        }}
+      >
+        <Component {...pageProps} />
+      </PrivyProvider>
+    </>
+  );
+}
+```
+
+Your login methods must match with
+
+![image](images/choose_login_method.png)
+
+6. Setup gas bundle for Biconomy (only for the sponsor)
+
+Go into biconomy dashboard https://dashboard.biconomy.io/
+Setup to get the paymentMasterApi and bundleUrl
+
 5. Open [http://localhost:3000](http://localhost:3000) in your web browser to access the application.
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.

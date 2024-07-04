@@ -9,7 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@biconomy/account": "4.0.0",
+    "@biconomy/account": "^4.5.2",
     "@privy-io/react-auth": "^1.64.1",
     "ethers": "^5.7.2",
     "next": "14.2.3",

@@ -4,6 +4,11 @@ This is a [Next.js](https://nextjs.org/) project that demonstrates the integrati
 
 ![image](images/login.png)
 
+## Configurations
+- Privy AppId: `cly5y2njc04whvv4lrd2b1trt`
+- Biconomy ApiKey: `izhDj8Kmh.401d1ce8-104f-4e86-948d-052430ddd7c4`
+- Biconomy BundleUrl: `https://bundler.biconomy.io/api/v2/${chainId}/izhDj8Kmh.401d1ce8-104f-4e86-948d-052430ddd7c4`
+
 ## Getting Started
 
 To get started with this project, follow these steps:

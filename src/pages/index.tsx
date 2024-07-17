@@ -4,11 +4,12 @@ import {
   BiconomySmartAccountV2,
   PaymasterMode,
   createSessionKeyEOA,
-  SessionStoragePayload,
   createSessionSmartAccountClient,
   Hex,
   createSession,
   SessionLocalStorage,
+  getSingleSessionTxParams,
+  resumeSession,
 } from "@biconomy/account";
 import { baseSepolia } from "viem/chains";
 import { ConnectedWallet, usePrivy, useWallets } from "@privy-io/react-auth";
@@ -24,11 +25,12 @@ export default function Home() {
   const [wallet, setWallet] = useState<ConnectedWallet | null>(null);
   const [txnHash, setTxnHash] = useState<string | null>(null);
 
-  const [sessionKeyStoragePayLoad, setSessionKeyStoragePayLoad] = useState<SessionStoragePayload | null>()
   const [smartAccountWithSession, setSmartAccountWithSession] = useState<BiconomySmartAccountV2 | null>()
+  const [smartAccountWithSessionAddress, setSmartAccountWithSessionAddress] = useState<string | null>()
   const [txHashFromSession, setTxHashFromSession] = useState<string | null>()
   const [chainSelected, setChainSelected] = useState<number>(0);
   const [sessionKeyCreating, setSessionKeyCreating] = useState<boolean>(false)
+
   const { login, authenticated } = usePrivy();
   const { wallets } = useWallets(); // https://docs.privy.io/guide/react/wallets/use-wallets#usewallets-vs-useprivy
 
@@ -43,7 +45,6 @@ export default function Home() {
   const signIn = async () => {
     try {
       if (!authenticated) login();
-      setLoading(true);
       // IMPORTANT! Choose privy embedded wallet
       const wallet = wallets.find((wallet) => (wallet.walletClientType === 'privy')) as ConnectedWallet;
       setWallet(wallet);
@@ -63,7 +64,6 @@ export default function Home() {
       const smartAccountAddress = await smartAccount.getAddress();
       setSmartAccountAddress(smartAccountAddress)
       console.log("Smart Account Address", smartAccountAddress);
-      setLoading(false);
     } catch (error) {
       toast.error("Failed to setup account abstraction");
     }
@@ -76,21 +76,17 @@ export default function Home() {
       }
 
       setSessionKeyCreating(true)
-      const sessionStorage = new SessionLocalStorage(smartAccountAddress as Hex)
-      sessionStorage.clearPendingSessions();
-      const allSessionDatas = await sessionStorage.getAllSessionData();
-      let payload
-      if (allSessionDatas.length === 0) {
-        payload = await createSessionKeyEOA(
-          smartAccount,
-          chains[chainSelected],
-          sessionStorage,
-        );
-        const { session, wait } = await createSession(
+      const sessionStorage = new SessionLocalStorage(smartAccountAddress as Hex);
+      await sessionStorage.clearPendingSessions()
+      let session = await resumeSession(sessionStorage);
+      if (session.sessionIDInfo.length === 0) {
+        //@ts-expect-error
+        const sessionKeyAddress = (await (await sessionStorage.addSigner(undefined, chains[chainSelected])).getAddress());
+        const { session: newSession, wait } = await createSession(
           smartAccount,
           [
             {
-              sessionKeyAddress: payload.sessionKeyAddress as Hex,
+              sessionKeyAddress: sessionKeyAddress as Hex,
               contractAddress: "0xd98daeed0e3562ee43dedae98f3fa4e585a9928e",
               functionSelector: "login(uint256)",
               rules: [],
@@ -109,32 +105,28 @@ export default function Home() {
 
         const { success, receipt } = await wait();
         if (success === 'true') {
-          toast.info(`Session key created successfully ${receipt}`)
+          toast.done(`Session key created successfully ${receipt}`)
+          session = newSession
           session.sessionStorageClient.updateSessionStatus({ sessionID: session.sessionIDInfo[0] }, "ACTIVE")
+        } else {
+          toast.error(`Failed to create session key ${receipt}`)
         }
       } else {
-        payload = {
-          sessionKeyAddress: allSessionDatas[0].sessionPublicKey,
-          sessionStorageClient: sessionStorage,
-          signer: await sessionStorage.getSignerBySession({
-            sessionID: allSessionDatas[0].sessionID,
-            sessionPublicKey: allSessionDatas[0].sessionPublicKey,
-            sessionValidationModule: allSessionDatas[0].sessionValidationModule,
-          }, chains[chainSelected]),
-        }
-        setSessionKeyStoragePayLoad(payload)
+        session.sessionStorageClient.updateSessionStatus({ sessionID: session.sessionIDInfo[0] }, "ACTIVE")
       }
-
+      
       const smartAccountWithSession = await createSessionSmartAccountClient(
         {
-          accountAddress: payload?.sessionKeyAddress as Hex, // Dapp can set the account address on behalf of the user
+          accountAddress: smartAccountAddress as Hex, // Dapp can set the account address on behalf of the user
           bundlerUrl: chains[chainSelected].bundlerUrl,
           chainId: chains[chainSelected].id,
         },
-        payload?.sessionStorageClient,
+        smartAccountAddress as Hex,
       );
 
       setSmartAccountWithSession(smartAccountWithSession);
+      const smartAccountWithSessionAddress = await smartAccountWithSession.getAddress();
+      setSmartAccountWithSessionAddress(smartAccountWithSessionAddress)
       setSessionKeyCreating(false)
     } catch (err: any) {
       console.error(err);
@@ -162,22 +154,18 @@ export default function Home() {
 
     let userOpResponse
     if (withSessionKey && smartAccountWithSession) {
-      // build user op
-      let userOp = await smartAccountWithSession.buildUserOp([tx], {
-        params: {
-          sessionValidationModule: "0x8622DE43Ef5744835cd8891a45238E088510C107",
-        },
-        paymasterServiceData: {
-          mode: PaymasterMode.SPONSORED,
-        },
-      });
+      const params = await getSingleSessionTxParams(
+        smartAccountAddress as Hex,
+        chains[chainSelected],
+        0,
+      )
 
-      console.log("use withSessionKey")
+      console.log("single transaction params", params)
+
       // send user op
-      userOpResponse = await smartAccountWithSession.sendUserOp(userOp, {
-        // @ts-expect-error
-        sessionSigner: sessionWallet,
-        sessionValidationModule: "0x8622DE43Ef5744835cd8891a45238E088510C107",
+      userOpResponse = await smartAccountWithSession.sendTransaction(tx, {
+        ...params,
+        paymasterServiceData: { mode: PaymasterMode.SPONSORED },
       });
     } else {
       // Send transaction to mempool, to be executed by the smart account
@@ -228,7 +216,7 @@ export default function Home() {
           <span>Network: {chains[chainSelected].name}</span>
           <span>Privy Wallet Address: {wallet?.address} </span>
           <span>Smart Account Address: {smartAccountAddress} </span>
-          <span>Session Key Address: {sessionKeyStoragePayLoad?.sessionKeyAddress}</span>
+          <span>Session Key Address: {smartAccountWithSessionAddress}</span>
           <div className="flex flex-row justify-between items-start gap-8">
             <div className="flex flex-col justify-center items-center gap-4">
               <button
@@ -255,7 +243,7 @@ export default function Home() {
                 smartAccountWithSession ? (
                   <button
                     className="w-[10rem] h-[3rem] bg-orange-300 text-black font-bold rounded-lg"
-                    onClick={() => loginOnChain(false)}
+                    onClick={() => loginOnChain(true)}
                   >
                     Login on chain with Session key
                   </button>
